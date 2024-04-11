@@ -1,6 +1,6 @@
 """Tools to build Columns HighCharts parameters."""
 from .base import JSONView
-
+from ..colors import next_color
 
 class BaseColumnsHighChartsView(JSONView):
     """Base Class to generate Column HighCharts configuration.
@@ -12,11 +12,15 @@ class BaseColumnsHighChartsView(JSONView):
     providers = {}
     credits = {"enabled": True}
 
+    def get_colors(self):
+        return next_color()
+    
     def get_context_data(self, **kwargs):
         """Return graph configuration."""
         context = super(BaseColumnsHighChartsView, self).get_context_data(**kwargs)
         context.update(
             {
+                'labels': self.get_labels(),
                 "chart": self.get_type(),
                 "title": self.get_title(),
                 "subtitle": self.get_subtitle(),
@@ -24,7 +28,7 @@ class BaseColumnsHighChartsView(JSONView):
                 "yAxis": self.get_yAxis(),
                 "tooltip": self.get_tooltip(),
                 "plotOptions": self.get_plotOptions(),
-                "series": self.get_series(),
+                "datasets": self.get_series(),
                 "credits": self.credits,
             }
         )
@@ -100,13 +104,26 @@ class BaseColumnsHighChartsView(JSONView):
         return {"column": {"pointPadding": 0.2, "borderWidth": 0}}
 
     def get_series(self):
-        """Generate HighCharts series from providers and data."""
-        series = []
+        datasets = []
+        color_generator = self.get_colors()
         data = self.get_data()
         providers = self.get_providers()
-        for i, d in enumerate(data):
-            series.append({"name": providers[i], "data": d})
-        return series
+        for i, entry in enumerate(data):
+            color = tuple(next(color_generator))
+            dataset = {"data": entry,
+                       "label": providers[i],}
+            dataset.update(self.get_dataset_options(i, color))
+            datasets.append(dataset)
+        return datasets
+
+    def get_dataset_options(self, index, color):
+        default_opt = {
+            "backgroundColor": "rgba(%d, %d, %d, 0.5)" % color,
+            "borderColor": "rgba(%d, %d, %d, 1)" % color,
+            "pointBackgroundColor": "rgba(%d, %d, %d, 1)" % color,
+            "pointBorderColor": "#fff",
+        }
+        return default_opt
 
     def get_data(self):
         """Return a list of series [[25, 34, 0, 1, 50], ...]).
